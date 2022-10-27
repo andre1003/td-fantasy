@@ -1,14 +1,14 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
 #include "TDFantasyCppGameMode.h"
-#include "TDFantasyCppPlayerController.h"
-#include "TDFantasyCppCharacter.h"
+#include "BasePlayerController.h"
+#include "BaseCharacter.h"
 #include "UObject/ConstructorHelpers.h"
 
 ATDFantasyCppGameMode::ATDFantasyCppGameMode()
 {
 	// use our custom PlayerController class
-	PlayerControllerClass = ATDFantasyCppPlayerController::StaticClass();
+	PlayerControllerClass = ABasePlayerController::StaticClass();
 
 	// set default pawn class to our Blueprinted character
 	static ConstructorHelpers::FClassFinder<APawn> PlayerPawnBPClass(TEXT("/Game/TopDown/Blueprints/BP_TopDownCharacter"));
