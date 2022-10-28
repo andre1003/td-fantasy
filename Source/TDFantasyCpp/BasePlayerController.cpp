@@ -11,7 +11,9 @@
 #include "BaseCharacter.h"
 #include "Engine/World.h"
 #include "BaseEnemy.h"
+#include "BaseChest.h"
 #include "Kismet/KismetStringLibrary.h"
+#include "Kismet/GameplayStatics.h"
 #pragma endregion
 
 
@@ -52,31 +54,21 @@ void ABasePlayerController::SetupInputComponent()
 #pragma region Set Destination Methods
 void ABasePlayerController::OnSetDestinationPressed()
 {
-	//// We flag that the input is being pressed
-	//bInputPressed = true;
-	//// Just in case the character was moving because of a previous short press we stop it
-	//StopMovement();
-
-	//// If it was a short press
-	//if(FollowTime <= ShortPressThreshold) {
-	//	// We look for the location in the world where the player has pressed the input
-	//	FVector HitLocation = FVector::ZeroVector;
-	//	FHitResult Hit;
-	//	GetHitResultUnderCursor(ECC_Visibility, true, Hit);
-	//	HitLocation = Hit.Location;
-
-	//	// We move there and spawn some particles
-	//	UAIBlueprintHelperLibrary::SimpleMoveToLocation(this, HitLocation);
-	//	UNiagaraFunctionLibrary::SpawnSystemAtLocation(this, FXCursor, HitLocation, FRotator::ZeroRotator, FVector(1.f, 1.f, 1.f), true, true, ENCPoolMethod::None, true);
-	//}
-
 	// Get cursor hit
 	GetCursorHit();
 
 	// Is is not an enemy
 	if(bIsEnemy == false)
+	{
 		// Move player to location
 		MoveToHitLocation(MoveToLocation);
+	}
+	
+	// If is an enemy
+	else
+	{
+		CallBasicAttack(EnemyReference);
+	}
 
 }
 
@@ -110,32 +102,35 @@ void ABasePlayerController::GetCursorHit()
 
 	// Set variables
 	MoveToLocation = Hit.Location;
+	EnemyReference = nullptr;
+	ChestReference = nullptr;
+	bIsEnemy = false;
+	bIsChest = false;
 
-	// If hit an actor
-	if(Hit.GetActor() != nullptr)
+	// If didn't hit an actor, clear all stats and exit
+	if(Hit.GetActor() == nullptr)
 	{
-		// Try to cast to BaseEnemy class
-		EnemyReference = Cast<class ABaseEnemy>(Hit.GetActor());
-
-		// If cast succeded
-		if(EnemyReference)
-		{
-			bIsEnemy = true;
-			bIsChest = false;
-		}
-		// If not
-		else
-		{
-			EnemyReference = nullptr;
-			bIsEnemy = false;
-		}
+		return;
 	}
-	// If didn't hit an actor, clear all stats
-	else
+
+	// Try to cast to BaseEnemy class
+	EnemyReference = Cast<ABaseEnemy>(Hit.GetActor());
+
+	// If cast succeded, indicates that it is an enemy and exit
+	if(EnemyReference)
 	{
-		EnemyReference = nullptr;
-		bIsEnemy = false;
-		bIsChest = false;
+		bIsEnemy = true;
+		return;
+	}
+
+	// Try to cast to BaseChest class
+	ChestReference = Cast<ABaseChest>(Hit.GetActor());
+
+	// If cast succeded, indicates that it is a chest and exit
+	if(ChestReference)
+	{
+		bIsChest = true;
+		return;
 	}
 }
 #pragma endregion
@@ -148,8 +143,30 @@ void ABasePlayerController::MoveToHitLocation(FVector TargetLocation)
 
 	// Spawn click FX cursor
 	UNiagaraFunctionLibrary::SpawnSystemAtLocation(this, FXCursor, TargetLocation, FRotator::ZeroRotator, FVector(1.f, 1.f, 1.f), true, true, ENCPoolMethod::None, true);
+
+	// Get player
+	ABaseCharacter* BaseCharacter = Cast<ABaseCharacter>(UGameplayStatics::GetPlayerCharacter(GetWorld(), 0));
+	
+	// Reset focus enemy and auto attack
+	BaseCharacter->SetFocusEnemy(nullptr);
+	BaseCharacter->ResetAutoAttack();
 }
 #pragma endregion
+
+#pragma region Combat
+void ABasePlayerController::CallBasicAttack(ABaseEnemy* Enemy)
+{
+	// Stop player movement
+	StopMovement();
+
+	// Get player
+	ABaseCharacter* BaseCharacter = Cast<ABaseCharacter>(UGameplayStatics::GetPlayerCharacter(GetWorld(), 0));
+
+	// Call player's basic attack method
+	BaseCharacter->BasicAttack(Enemy);
+}
+#pragma endregion
+
 
 #pragma region Mode
 void ABasePlayerController::ChangeMode(int Option)
@@ -188,14 +205,14 @@ void ABasePlayerController::UpdateMouseDisplay()
 	{
 		// Hide cursor and change mode to Game Only
 		bShowMouseCursor = false;
-		ChangeMode(2);
+		//ChangeMode(2);
 	}
 	// If not
 	else
 	{
 		// Show cursor and change mode to Game and UI
 		bShowMouseCursor = true;
-		ChangeMode(0);
+		//ChangeMode(0);
 	}
 }
 
@@ -253,7 +270,6 @@ void ABasePlayerController::ChangeCursorImage(ECursorType CursorType)
 	// If cursor type is attack, set mouse cursor to crosshairs
 	else if(CursorType == ECursorType::ECT_Attack)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("HERE"));
 		CurrentMouseCursor = EMouseCursor::Crosshairs;
 	}
 	// Else, set mouse cursor to eye dropper

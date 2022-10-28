@@ -46,13 +46,18 @@ protected:
 	UPROPERTY(BlueprintReadOnly)
 		bool bIsEnemy = false;
 
+	// Is chest controller
+	UPROPERTY(BlueprintReadOnly)
+		bool bIsChest = false;
+
+
 	// Cursor enemy reference
 	UPROPERTY(BlueprintReadOnly)
 		class ABaseEnemy* EnemyReference;
 
-	// Is chest controller
+	// Cursor chest reference
 	UPROPERTY(BlueprintReadOnly)
-		bool bIsChest = false;
+		class ABaseChest* ChestReference;
 	#pragma endregion
 
 	#pragma region Private Attributes
@@ -77,11 +82,12 @@ public:
 	ABasePlayerController();
 
 	#pragma region Mode
-	/// <summary>
-	/// Change controller mode.
-	/// </summary>
-	/// <param name="Option">Controller mode option.</param>
-	void ChangeMode(int Option);
+	UFUNCTION(BlueprintCallable)
+		/// <summary>
+		/// Change controller mode.
+		/// </summary>
+		/// <param name="Option">Controller mode option.</param>
+		void ChangeMode(int Option);
 	#pragma endregion
 
 	#pragma region Cursor Change
@@ -134,6 +140,15 @@ private:
 	/// <param name="TargetLocation">Target location to move.</param>
 	void MoveToHitLocation(FVector TargetLocation);
 	#pragma endregion
+
+	#pragma region Combat
+	/// <summary>
+	/// Make player attack an enemy.
+	/// </summary>
+	/// <param name="Enemy">Enemy to attack.</param>
+	void CallBasicAttack(class ABaseEnemy* Enemy);
+	#pragma endregion
+
 
 	#pragma region Cursor Change
 	/// <summary>

@@ -1,6 +1,7 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 // Edit by Paulo André "Dufwine" Pimenta Aragão.
 
+
 #pragma region Includes
 #include "BaseCharacter.h"
 #include "BaseBasicHit.h"
@@ -15,10 +16,12 @@
 #include "GameFramework/PlayerController.h"
 #include "GameFramework/SpringArmComponent.h"
 #include "Kismet/KismetMathLibrary.h"
+#include "Kismet/KismetStringLibrary.h"
 #include "Kismet/GameplayStatics.h"
 #include "Materials/Material.h"
 #include "Engine/World.h"
 #include "BasePlayerController.h"
+#include "TDFantasyCppGameMode.h"
 #pragma endregion
 
 
@@ -43,7 +46,7 @@ ABaseCharacter::ABaseCharacter()
 	CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraBoom"));
 	CameraBoom->SetupAttachment(RootComponent);
 	CameraBoom->SetUsingAbsoluteRotation(true); // Don't want arm to rotate when character does
-	CameraBoom->TargetArmLength = 800.f;
+	CameraBoom->TargetArmLength = 2200.f;
 	CameraBoom->SetRelativeRotation(FRotator(-60.f, 0.f, 0.f));
 	CameraBoom->bDoCollisionTest = false; // Don't want to pull camera in when it collides with level
 
@@ -79,6 +82,40 @@ void ABaseCharacter::BeginPlay()
 void ABaseCharacter::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
+
+	// Update all cooldowns
+	UpdateCooldowns(DeltaSeconds);
+}
+#pragma endregion
+
+#pragma region Player Input
+void ABaseCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
+{
+	Super::SetupPlayerInputComponent(PlayerInputComponent);
+
+	#pragma region Axis
+	// Gamepad movement axis bind
+	PlayerInputComponent->BindAxis("MoveForward", this, &ABaseCharacter::ForwardMovement);
+	PlayerInputComponent->BindAxis("MoveRight", this, &ABaseCharacter::RightMovement);
+
+	// Zoom axis bind
+	PlayerInputComponent->BindAxis("Zoom", this, &ABaseCharacter::CameraZoom);
+	#pragma endregion
+
+	#pragma region Actions
+	// Gamepad basic hit action bind
+	PlayerInputComponent->BindAction("BasicHit", EInputEvent::IE_Pressed, this, &ABaseCharacter::GamepadBasicHit);
+
+	// Skills action bind
+	DECLARE_DELEGATE_OneParam(FUseSkillDelegate, const int);
+	PlayerInputComponent->BindAction<FUseSkillDelegate>("Skill1", EInputEvent::IE_Pressed, this, &ABaseCharacter::UseSkill, 0);
+	PlayerInputComponent->BindAction<FUseSkillDelegate>("Skill2", EInputEvent::IE_Pressed, this, &ABaseCharacter::UseSkill, 1);
+	PlayerInputComponent->BindAction<FUseSkillDelegate>("Skill3", EInputEvent::IE_Pressed, this, &ABaseCharacter::UseSkill, 2);
+	PlayerInputComponent->BindAction<FUseSkillDelegate>("UltimateSkill", EInputEvent::IE_Pressed, this, &ABaseCharacter::UseSkill, 3);
+
+	// Reset camera action bind
+	PlayerInputComponent->BindAction("ResetCamera", EInputEvent::IE_Pressed, this, &ABaseCharacter::ResetCamera);
+	#pragma endregion
 }
 #pragma endregion
 #pragma endregion
@@ -189,10 +226,10 @@ void ABaseCharacter::Die()
 	DisableInput(UGameplayStatics::GetPlayerController(GetWorld(), 0));
 
 	// Reset variables
-	//
+	FocusEnemy = nullptr;
 	BasicAttackCooldown = 0.f;
-	//
-	//
+	TempChest = nullptr;
+	TempItem = nullptr;
 
 	// Set bIsDead to true
 	bIsDead = true;
@@ -257,7 +294,7 @@ void ABaseCharacter::ResetAutoAttack()
 
 void ABaseCharacter::BasicAttack(ABaseEnemy* EnemyReference)
 {
-	// If player is using a skill shot or basic attack is in cooldown, exit
+	// If player is using a skill shot or basic attack is on cooldown, exit
 	if(bIsUsingShotSkill || BasicAttackCooldown > 0.f)
 	{
 		return;
@@ -282,8 +319,8 @@ void ABaseCharacter::BasicAttack(ABaseEnemy* EnemyReference)
 void ABaseCharacter::UseSkill(int Index)
 {
 	#pragma region Initial Setup
-	// If is a valid index, skill is in cooldown or there are any temporary variable set, exit method
-	if(Index > 3 || Index < 0 || SkillCooldowns[Index] > 0.f /* or CheckTemp*/)
+	// If is a valid index, skill is on cooldown or there are any temporary variable set, exit method
+	if(Index > 3 || Index < 0 || SkillCooldowns[Index] > 0.f || HasTemporary())
 	{
 		return;
 	}
@@ -427,8 +464,10 @@ FTransform ABaseCharacter::GetSkillSpawnTransform(ESkillSpawnOption SpawnOption)
 		SpawnLocation = SkillTarget;
 	}
 
+	// Create spawn transform
 	FTransform SpawnTransform = FTransform(SpawnRotation, SpawnLocation, SpawnScale);
 
+	// Return spawn transform
 	return SpawnTransform;
 }
 
@@ -487,6 +526,213 @@ void ABaseCharacter::SpawnHit()
 
 		// Set bIsUsingShotSkill to false
 		bIsUsingShotSkill = false;
+	}
+}
+#pragma endregion
+
+#pragma region Wallet
+void ABaseCharacter::AddMoney(int CoinsToAdd, int GemsToAdd)
+{
+	// Add wallet UI
+	SetWalletUI(CoinsToAdd, GemsToAdd);
+	
+	// Add coins and gems
+	Coins += CoinsToAdd;
+	Gems += GemsToAdd;
+
+	// If coins exceed max allowed money, set it to max money
+	if(Coins > MaxMoney)
+	{
+		Coins = MaxMoney;
+	}
+
+	// If gems exceed max allowed money, set it to max money
+	if(Gems > MaxMoney)
+	{
+		Gems = MaxMoney;
+	}
+}
+#pragma endregion
+
+#pragma region Temporary
+void ABaseCharacter::SetTempItem(ABaseItem* Value)
+{
+	TempItem = Value;
+}
+
+bool ABaseCharacter::HasTemporary()
+{
+	return (TempItem != nullptr || TempChest != nullptr);
+}
+#pragma endregion
+
+#pragma region Update
+void ABaseCharacter::UpdateCooldowns(float DeltaSeconds)
+{
+	// If there is a focus enemy
+	if(FocusEnemy != nullptr)
+	{
+		// If basic attack is on cooldown
+		if(BasicAttackCooldown > 0.f)
+		{
+			BasicAttackCooldown -= DeltaSeconds;
+		}
+
+		// If not on cooldow, and focus enemy is not dead, attack it
+		else if(!FocusEnemy->GetIsDead())
+		{
+			BasicAttack(FocusEnemy);
+		}
+	}
+
+	// Loop through skill cooldowns
+	for(int i = 0; i < 4; i++)
+	{
+		// If cooldown is bigger than 0, decrease DeltaSeconds from it
+		if(SkillCooldowns[i] > 0)
+		{
+			SkillCooldowns[i] -= DeltaSeconds;
+		}
+	}
+}
+#pragma endregion
+
+#pragma region Gamepad
+void ABaseCharacter::ForwardMovement(float Value)
+{
+	// Set YIn variable
+	YIn = Value;
+	
+	// Fix foward axis diagonal for gamepad
+	float ClampValue = UKismetMathLibrary::MapRangeClamped(UKismetMathLibrary::Abs(XIn), 0.f, 0.6f, 1.f, 1.2f) * YIn;
+	YOut = UKismetMathLibrary::FClamp(ClampValue, -1.f, 1.f);
+
+	// Call movement input method
+	MovementInput(true);
+}
+
+void ABaseCharacter::RightMovement(float Value)
+{
+	// Set XIn variable
+	XIn = Value;
+	
+	// Fix right axis diagonal for gamepad
+	float ClampValue = UKismetMathLibrary::MapRangeClamped(UKismetMathLibrary::Abs(YIn), 0.f, 0.6f, 1.f, 1.2f) * XIn;
+	XOut = UKismetMathLibrary::FClamp(ClampValue, -1.f, 1.f);
+
+	// Call movement input method
+	MovementInput(false);
+}
+
+void ABaseCharacter::MovementInput(bool bIsForwardMovement)
+{
+	// Forward movement
+	if(bIsForwardMovement)
+	{
+		FVector ForwardVector = UKismetMathLibrary::GetForwardVector(FRotator(0.f, GetControlRotation().Yaw, 0.f));
+		AddMovementInput(ForwardVector, YOut);
+	}
+
+	// Right movement
+	else
+	{
+		FVector RightVector = UKismetMathLibrary::GetRightVector(FRotator(0.f, GetControlRotation().Yaw, 0.f));
+		AddMovementInput(RightVector, XOut);
+	}
+
+	// If there is any movement, reset focus enemy and auto attack
+	if(YOut != 0.f || XOut != 0.f)
+	{
+		FocusEnemy = nullptr;
+		ResetAutoAttack();
+	}
+}
+
+void ABaseCharacter::GamepadBasicHit()
+{
+	// Try to find closest enemy in a given range
+	GetClosestEnemy(2500.f);
+
+	// If found an enemy, attack it
+	if(bEnemyWasFound)
+	{
+		BasicAttack(EnemyFound);
+	}
+}
+#pragma endregion
+
+#pragma region Camera
+void ABaseCharacter::CameraZoom(float Value)
+{
+	// If there is no input, exit
+	if(Value == 0.f)
+	{
+		return;
+	}
+
+	// Get player controller
+	ABasePlayerController* PlayerController = Cast<ABasePlayerController>
+		(UGameplayStatics::GetPlayerController(GetWorld(), 0));
+
+	// If player is using gamepad
+	if(PlayerController->GetIsUsingGamepad())
+	{
+		Zoom = 25.f;
+	}
+
+	// If player is not using gamepad
+	else
+	{
+		Zoom = 100.f;
+	}
+
+
+	// If input is positive
+	if(Value > 0.f)
+	{
+		CameraBoom->TargetArmLength -= Zoom;
+	}
+
+	// If input is negative
+	else
+	{
+		CameraBoom->TargetArmLength += Zoom;
+	}
+
+	// Force target arm length to be between 1000 and 4000
+	CameraBoom->TargetArmLength = UKismetMathLibrary::FClamp(CameraBoom->TargetArmLength, 1000.f, 4000.f);
+}
+
+void ABaseCharacter::ResetCamera()
+{
+	CameraBoom->TargetArmLength = 2200.f;
+}
+#pragma endregion
+
+#pragma region Setters
+void ABaseCharacter::SetFocusEnemy(class ABaseEnemy* NewFocusEnemy)
+{
+	FocusEnemy = NewFocusEnemy;
+}
+#pragma endregion
+
+#pragma region Use
+void ABaseCharacter::Use()
+{
+	// If there is no temporary item and chest, exit
+	if(TempItem == nullptr && TempChest == nullptr)
+	{
+		return;
+	}
+
+	// If there is a temporary item
+	if(TempItem)
+	{
+		
+	}
+	else
+	{
+
 	}
 }
 #pragma endregion

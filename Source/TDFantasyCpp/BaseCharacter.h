@@ -144,6 +144,16 @@ protected:
 		int MaxMoney = 1000000;
 	#pragma endregion
 
+	#pragma region Temporary
+	// Temporary item reference
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Temporary")
+		class ABaseItem* TempItem;
+
+	// Temporary chest reference
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Temporary")
+		class ABaseChest* TempChest;
+	#pragma endregion
+
 	#pragma region Animations
 	class UAnimMontage* AttackAnimation;
 	#pragma endregion
@@ -172,6 +182,20 @@ private:
 	/** Camera boom positioning the camera above the character */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera, meta = (AllowPrivateAccess = "true"))
 		class USpringArmComponent* CameraBoom;
+
+	#pragma region Movement
+	// Original Y scale value
+	float YIn;
+
+	// Original X scale value
+	float XIn;
+
+	// Fixed Y scale value
+	float YOut;
+
+	// Fixed X scale value
+	float XOut;
+	#pragma endregion
 	#pragma endregion
 #pragma endregion
 
@@ -265,6 +289,12 @@ public:
 	#pragma endregion
 
 	#pragma region Combat
+	UFUNCTION(BlueprintCallable)
+		/// <summary>
+		/// Reset auto attack.
+		/// </summary>
+		void ResetAutoAttack();
+
 	UFUNCTION(BlueprintCallable, Category = "Combat")
 		/// <summary>
 		/// Perform a basic attack on an enemy.
@@ -279,19 +309,75 @@ public:
 		/// <param name="Index">- Skill index.</param>
 		void UseSkill(int Index);
 	#pragma endregion
+
+	#pragma region Wallet
+	UFUNCTION(BlueprintCallable, BlueprintImplementableEvent)
+		/// <summary>
+		/// Add wallet UI widget to viewport. Blueprint implementable only!
+		/// </summary>
+		/// <param name="AddedCoins">- Added coins.</param>
+		/// <param name="AddedGems">- Added gems.</param>
+		void SetWalletUI(int AddedCoins, int AddedGems);
+
+	UFUNCTION(BlueprintCallable)
+		/// <summary>
+		/// Add coins and gems to player's wallet.
+		/// </summary>
+		/// <param name="CoinsToAdd">- Coins to add.</param>
+		/// <param name="GemsToAdd">- Gems to add.</param>
+		void AddMoney(int CoinsToAdd, int GemsToAdd);
+	#pragma endregion
+
+	#pragma region Temporary
+	/// <summary>
+	/// Set TempItem variable.
+	/// </summary>
+	/// <param name="Value">- New TempItem value.</param>
+	void SetTempItem(class ABaseItem* Value);
+	#pragma endregion
+
+	#pragma region Movement
+	/// <summary>
+	/// Perform gamepad movement input.
+	/// </summary>
+	/// <param name="bIsForwardMovement">Is forward movement controller.</param>
+	void MovementInput(bool bIsForwardMovement);
+	#pragma endregion
+
+	#pragma region Setters
+	/// <summary>
+	/// Set FocusEnemy variable value.
+	/// </summary>
+	/// <param name="NewFocusEnemy">New FocusEnemy value.</param>
+	void SetFocusEnemy(class ABaseEnemy* NewFocusEnemy);
+	#pragma endregion
+
 #pragma endregion
 
 	#pragma region Protected Methods
 protected:
+	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
+
+
+	#pragma region Combat
 	UFUNCTION(BlueprintCallable, BlueprintImplementableEvent)
-	/// <summary>
-	/// Try to get the closest enemy.
-	/// </summary>
-	void GetClosestEnemy();
+		/// <summary>
+		/// Try to get the closest enemy.
+		/// </summary>
+		void GetClosestEnemy(float Range);
+	#pragma endregion
 	#pragma endregion
 
 	#pragma region Private Methods
 private:
+	#pragma region Update
+	/// <summary>
+	/// Update all cooldowns.
+	/// </summary>
+	/// <param name="DeltaSeconds">- Delta seconds.</param>
+	void UpdateCooldowns(float DeltaSeconds);
+	#pragma endregion
+
 	#pragma region Stats
 	/// <summary>
 	/// Reset all stats to base stats.
@@ -307,12 +393,6 @@ private:
 	/// <param name="Type">- Skill type.</param>
 	/// <returns>- Has range. TRUE if has range, FALSE if not.</returns>
 	bool HasRange(float Range, ESkillType Type);
-
-	UFUNCTION(BlueprintCallable)
-		/// <summary>
-		/// Reset auto attack.
-		/// </summary>
-		void ResetAutoAttack();
 	#pragma endregion
 
 	#pragma region Spawn
@@ -334,6 +414,54 @@ private:
 	/// </summary>
 	void SpawnHit();
 	#pragma endregion
+
+	#pragma region Temporary
+	/// <summary>
+	/// Chek if there is any temporary variable set (item or chest).
+	/// </summary>
+	/// <returns>Return if there is a temporary item or chest. TRUE if there is, FALSE if there is not.</returns>
+	bool HasTemporary();
+	#pragma endregion
+
+	#pragma region Gamepad
+	/// <summary>
+	/// Forward movement bind method.
+	/// </summary>
+	/// <param name="Value">Scale value.</param>
+	void ForwardMovement(float Value);
+
+	/// <summary>
+	/// Right movement bind method.
+	/// </summary>
+	/// <param name="Value">Scale value.</param>
+	void RightMovement(float Value);
+
+	/// <summary>
+	/// Perform a basic hit when using gamepad.
+	/// </summary>
+	void GamepadBasicHit();
+	#pragma endregion
+
+	#pragma region Camera
+	/// <summary>
+	/// Camera zoom in or out.
+	/// </summary>
+	/// <param name="Value">Axis value.</param>
+	void CameraZoom(float Value);
+
+	/// <summary>
+	/// Reset camera position to default.
+	/// </summary>
+	void ResetCamera();
+	#pragma endregion
+
+	#pragma region Use Functionality
+	/// <summary>
+	/// Use functionality.
+	/// </summary>
+	void Use();
+	#pragma endregion
+
 	#pragma endregion
 #pragma endregion
 };
