@@ -130,6 +130,16 @@ protected:
 		class ABaseEnemy* FocusEnemy;
 	#pragma endregion
 
+	#pragma region Inventory
+	// Inventory base class reference
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Inventory")
+		TSubclassOf<class ABaseInventory> InventoryClass;
+
+	// Player inventory
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Inventory")
+		class ABaseInventory* Inventory;
+	#pragma endregion
+
 	#pragma region Wallet
 	// Coins
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Wallet")

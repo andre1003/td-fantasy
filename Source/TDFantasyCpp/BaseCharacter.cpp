@@ -5,7 +5,10 @@
 #pragma region Includes
 #include "BaseCharacter.h"
 #include "BaseBasicHit.h"
+#include "BaseChest.h"
 #include "BaseEnemy.h"
+#include "BaseInventory.h"
+#include "BaseItem.h"
 #include "BaseSkill.h"
 #include "UObject/ConstructorHelpers.h"
 #include "Camera/CameraComponent.h"
@@ -75,6 +78,14 @@ void ABaseCharacter::BeginPlay()
 
 	// Reset stats when begin play
 	ResetStats();
+
+	// Get inventory
+	Inventory = Cast<ABaseInventory>(UGameplayStatics::GetActorOfClass(GetWorld(), InventoryClass));
+
+	// Attach it to player
+	FAttachmentTransformRules AttachmentRules = FAttachmentTransformRules::FAttachmentTransformRules
+	(EAttachmentRule::KeepRelative, EAttachmentRule::KeepRelative, EAttachmentRule::KeepRelative, false);
+	Inventory->AttachToActor(this, AttachmentRules);
 }
 #pragma endregion
 
@@ -115,6 +126,9 @@ void ABaseCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompo
 
 	// Reset camera action bind
 	PlayerInputComponent->BindAction("ResetCamera", EInputEvent::IE_Pressed, this, &ABaseCharacter::ResetCamera);
+
+	// Use action bind
+	PlayerInputComponent->BindAction("Use", EInputEvent::IE_Pressed, this, &ABaseCharacter::Use);
 	#pragma endregion
 }
 #pragma endregion
@@ -728,11 +742,17 @@ void ABaseCharacter::Use()
 	// If there is a temporary item
 	if(TempItem)
 	{
-		
+		// Add item to inventory and destroy it from world
+		Inventory->AddItem(TempItem->GetClass(), 1);
+		TempItem->Destroy();
+		TempItem = nullptr;
 	}
+
+	// If there is a temporary chest
 	else
 	{
-
+		// Open chest
+		TempChest->OpenChest();
 	}
 }
 #pragma endregion
