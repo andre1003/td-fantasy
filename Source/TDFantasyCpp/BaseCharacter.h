@@ -19,7 +19,57 @@ class ABaseCharacter : public ACharacter
 
 #pragma region Atributes
 	#pragma region Public Attributes
+public:
+	#pragma region Damage
+	// Attack damage (AD)
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Damage")
+		int AttackDamage;
 
+	// Ability power (AP)
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Damage")
+		int AbilityPower;
+
+	// True damage (TD)
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Damage")
+		int TrueDamage;
+	#pragma endregion
+
+	#pragma region Base Stats
+	// Base health points
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Base Stats")
+		int BaseHealth;
+
+	// Base mana points
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Base Stats")
+		int BaseMana;
+
+	// Base attack damage (AD)
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Base Stats")
+		int BaseAttackDamage;
+
+	// Base ability power (AP)
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Base Stats")
+		int BaseAbilityPower;
+
+	// Base true damage (TD)
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Base Stats")
+		int BaseTrueDamage;
+
+
+	// Base attack speed value
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Base Stats")
+		float BaseAttackSpeed;
+
+	// Base basic attack cooldown value
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Base Stats")
+		float BaseBasicAttackCooldown;
+	#pragma endregion
+
+	#pragma region Basic Hit
+	// Basic hit class reference
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "BasicHit")
+		TSubclassOf<class ABaseBasicHit> BasicHitReference;
+	#pragma endregion
 	#pragma endregion
 
 	#pragma region Protected Attributes
@@ -55,51 +105,6 @@ protected:
 	// Attack type
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Stats")
 		EAttackType AttackType;
-	#pragma endregion
-
-	#pragma region Base Stats
-	// Base health points
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Base Stats")
-		int BaseHealth;
-
-	// Base mana points
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Base Stats")
-		int BaseMana;
-
-	// Base attack damage (AD)
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Base Stats")
-		int BaseAttackDamage;
-
-	// Base ability power (AP)
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Base Stats")
-		int BaseAbilityPower;
-
-	// Base true damage (TD)
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Base Stats")
-		int BaseTrueDamage;
-
-
-	// Base attack speed value
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Base Stats")
-		float BaseAttackSpeed;
-
-	// Base basic attack cooldown value
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Base Stats")
-		float BaseBasicAttackCooldown;
-	#pragma endregion
-
-	#pragma region Damage
-	// Attack damage (AD)
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Damage")
-		int AttackDamage;
-
-	// Ability power (AP)
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Damage")
-		int AbilityPower;
-
-	// True damage (TD)
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Damage")
-		int TrueDamage;
 	#pragma endregion
 
 	#pragma region Skills
@@ -140,6 +145,16 @@ protected:
 		class ABaseInventory* Inventory;
 	#pragma endregion
 
+	#pragma region Level
+	// Level system class reference
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Level")
+		TSubclassOf<class ALevelSystem> LevelClass;
+
+	// Level system
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Level")
+		class ALevelSystem* Level;
+	#pragma endregion
+
 	#pragma region Wallet
 	// Coins
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Wallet")
@@ -165,7 +180,9 @@ protected:
 	#pragma endregion
 
 	#pragma region Animations
-	class UAnimMontage* AttackAnimation;
+	// Attack animation
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Animations")
+		class UAnimMontage* AttackAnimation;
 	#pragma endregion
 
 	#pragma region Get Closest Enemy Variables
@@ -180,6 +197,12 @@ protected:
 	// Enemy found reference
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Closest Enemy")
 		class ABaseEnemy* EnemyFound;
+	#pragma endregion
+
+	#pragma region Potions
+	// Potions slots (this will only have max 4 slots, but is better use TArray)
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Potions")
+		TArray<TSubclassOf<class ABasePotion>> Potions;
 	#pragma endregion
 	#pragma endregion
 
@@ -265,6 +288,14 @@ public:
 		void PlayAttackAnimation();
 	#pragma endregion
 
+	#pragma region Enemy
+	/// <summary>
+	/// Get FocusEnemy variable.
+	/// </summary>
+	/// <return>FocusEnemy value.</return>
+	class ABaseEnemy* GetFocusEnemy();
+	#pragma endregion
+
 	#pragma region Damage
 	UFUNCTION(BlueprintCallable, Category = "Damage")
 		/// <summary>
@@ -338,14 +369,6 @@ public:
 		void AddMoney(int CoinsToAdd, int GemsToAdd);
 	#pragma endregion
 
-	#pragma region Temporary
-	/// <summary>
-	/// Set TempItem variable.
-	/// </summary>
-	/// <param name="Value">- New TempItem value.</param>
-	void SetTempItem(class ABaseItem* Value);
-	#pragma endregion
-
 	#pragma region Movement
 	/// <summary>
 	/// Perform gamepad movement input.
@@ -360,6 +383,18 @@ public:
 	/// </summary>
 	/// <param name="NewFocusEnemy">New FocusEnemy value.</param>
 	void SetFocusEnemy(class ABaseEnemy* NewFocusEnemy);
+
+	/// <summary>
+	/// Set TempItem variable.
+	/// </summary>
+	/// <param name="Value">- New TempItem value.</param>
+	void SetTempItem(class ABaseItem* Value);
+
+	/// <summary>
+	/// Set TemChest variable
+	/// </summary>
+	/// <param name="Value">- New TempChest value.</param>
+	void SetTempChest(class ABaseChest* Value);
 	#pragma endregion
 
 #pragma endregion
@@ -419,10 +454,11 @@ private:
 	/// <param name="SpawnOption">- Skill spawn option.</param>
 	void AttachSkill(ESkillSpawnOption SpawnOption);
 
-	/// <summary>
-	/// Spawn hit, based on attack type.
-	/// </summary>
-	void SpawnHit();
+	UFUNCTION(BlueprintCallable)
+		/// <summary>
+		/// Spawn hit, based on attack type.
+		/// </summary>
+		void SpawnHit();
 	#pragma endregion
 
 	#pragma region Temporary
@@ -472,6 +508,13 @@ private:
 	void Use();
 	#pragma endregion
 
+	#pragma region Potions
+	/// <summary>
+	/// Use the Index potion in Potions array.
+	/// </summary>
+	/// <param name="Index">Potion to use.</param>
+	void UsePotionAtIndex(int Index);
+	#pragma endregion
 	#pragma endregion
 #pragma endregion
 };

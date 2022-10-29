@@ -9,6 +9,7 @@
 #include "BaseEnemy.h"
 #include "BaseInventory.h"
 #include "BaseItem.h"
+#include "BasePotion.h"
 #include "BaseSkill.h"
 #include "UObject/ConstructorHelpers.h"
 #include "Camera/CameraComponent.h"
@@ -21,6 +22,7 @@
 #include "Kismet/KismetMathLibrary.h"
 #include "Kismet/KismetStringLibrary.h"
 #include "Kismet/GameplayStatics.h"
+#include "LevelSystem.h"
 #include "Materials/Material.h"
 #include "Engine/World.h"
 #include "BasePlayerController.h"
@@ -79,13 +81,19 @@ void ABaseCharacter::BeginPlay()
 	// Reset stats when begin play
 	ResetStats();
 
-	// Get inventory
-	Inventory = Cast<ABaseInventory>(UGameplayStatics::GetActorOfClass(GetWorld(), InventoryClass));
-
-	// Attach it to player
+	// Setup attachment rules
 	FAttachmentTransformRules AttachmentRules = FAttachmentTransformRules::FAttachmentTransformRules
 	(EAttachmentRule::KeepRelative, EAttachmentRule::KeepRelative, EAttachmentRule::KeepRelative, false);
+	
+	// Get inventory and attach it to player
+	Inventory = Cast<ABaseInventory>(UGameplayStatics::GetActorOfClass(GetWorld(), InventoryClass));
 	Inventory->AttachToActor(this, AttachmentRules);
+	Inventory->SetActorRelativeLocation(FVector::ZeroVector);
+
+	// Get level system and attach it to player
+	Level = Cast<ALevelSystem>(UGameplayStatics::GetActorOfClass(GetWorld(), LevelClass));
+	Level->AttachToActor(this, AttachmentRules);
+	Level->SetActorRelativeLocation(FVector::ZeroVector);
 }
 #pragma endregion
 
@@ -118,17 +126,21 @@ void ABaseCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompo
 	PlayerInputComponent->BindAction("BasicHit", EInputEvent::IE_Pressed, this, &ABaseCharacter::GamepadBasicHit);
 
 	// Skills action bind
-	DECLARE_DELEGATE_OneParam(FUseSkillDelegate, const int);
-	PlayerInputComponent->BindAction<FUseSkillDelegate>("Skill1", EInputEvent::IE_Pressed, this, &ABaseCharacter::UseSkill, 0);
-	PlayerInputComponent->BindAction<FUseSkillDelegate>("Skill2", EInputEvent::IE_Pressed, this, &ABaseCharacter::UseSkill, 1);
-	PlayerInputComponent->BindAction<FUseSkillDelegate>("Skill3", EInputEvent::IE_Pressed, this, &ABaseCharacter::UseSkill, 2);
-	PlayerInputComponent->BindAction<FUseSkillDelegate>("UltimateSkill", EInputEvent::IE_Pressed, this, &ABaseCharacter::UseSkill, 3);
+	DECLARE_DELEGATE_OneParam(FUseDelegate, const int);
+	PlayerInputComponent->BindAction<FUseDelegate>("Skill1", EInputEvent::IE_Pressed, this, &ABaseCharacter::UseSkill, 0);
+	PlayerInputComponent->BindAction<FUseDelegate>("Skill2", EInputEvent::IE_Pressed, this, &ABaseCharacter::UseSkill, 1);
+	PlayerInputComponent->BindAction<FUseDelegate>("Skill3", EInputEvent::IE_Pressed, this, &ABaseCharacter::UseSkill, 2);
+	PlayerInputComponent->BindAction<FUseDelegate>("UltimateSkill", EInputEvent::IE_Pressed, this, &ABaseCharacter::UseSkill, 3);
 
 	// Reset camera action bind
 	PlayerInputComponent->BindAction("ResetCamera", EInputEvent::IE_Pressed, this, &ABaseCharacter::ResetCamera);
 
 	// Use action bind
 	PlayerInputComponent->BindAction("Use", EInputEvent::IE_Pressed, this, &ABaseCharacter::Use);
+
+	// Use potion action bind
+	PlayerInputComponent->BindAction<FUseDelegate>("Potion1", EInputEvent::IE_Pressed, this, &ABaseCharacter::UsePotionAtIndex, 0);
+	PlayerInputComponent->BindAction<FUseDelegate>("Potion2", EInputEvent::IE_Pressed, this, &ABaseCharacter::UsePotionAtIndex, 1);
 	#pragma endregion
 }
 #pragma endregion
@@ -263,6 +275,13 @@ void ABaseCharacter::PlayAttackAnimation()
 }
 #pragma endregion
 
+#pragma region Enemy
+ABaseEnemy* ABaseCharacter::GetFocusEnemy()
+{
+	return FocusEnemy;
+}
+#pragma endregion
+
 #pragma region Combat
 bool ABaseCharacter::HasRange(float Range, ESkillType Type)
 {
@@ -334,7 +353,7 @@ void ABaseCharacter::UseSkill(int Index)
 {
 	#pragma region Initial Setup
 	// If is a valid index, skill is on cooldown or there are any temporary variable set, exit method
-	if(Index > 3 || Index < 0 || SkillCooldowns[Index] > 0.f || HasTemporary())
+	if(!Skills.IsValidIndex(Index) || SkillCooldowns[Index] > 0.f || HasTemporary())
 	{
 		return;
 	}
@@ -526,7 +545,7 @@ void ABaseCharacter::SpawnHit()
 	{
 		// Spawn base basic hit
 		FTransform SpawnTransform = FTransform(FRotator::ZeroRotator, GetMesh()->GetSocketLocation(TEXT("RightHandSocket")));
-		GetWorld()->SpawnActor<ABaseBasicHit>(ABaseBasicHit::StaticClass(), SpawnTransform);
+		GetWorld()->SpawnActor<ABaseBasicHit>(BasicHitReference, SpawnTransform);
 	}
 
 	// If attack type is skill
@@ -569,11 +588,6 @@ void ABaseCharacter::AddMoney(int CoinsToAdd, int GemsToAdd)
 #pragma endregion
 
 #pragma region Temporary
-void ABaseCharacter::SetTempItem(ABaseItem* Value)
-{
-	TempItem = Value;
-}
-
 bool ABaseCharacter::HasTemporary()
 {
 	return (TempItem != nullptr || TempChest != nullptr);
@@ -728,13 +742,23 @@ void ABaseCharacter::SetFocusEnemy(class ABaseEnemy* NewFocusEnemy)
 {
 	FocusEnemy = NewFocusEnemy;
 }
+
+void ABaseCharacter::SetTempItem(ABaseItem* Value)
+{
+	TempItem = Value;
+}
+
+void ABaseCharacter::SetTempChest(class ABaseChest* Value)
+{
+	TempChest = Value;
+}
 #pragma endregion
 
 #pragma region Use
 void ABaseCharacter::Use()
 {
 	// If there is no temporary item and chest, exit
-	if(TempItem == nullptr && TempChest == nullptr)
+	if(!HasTemporary())
 	{
 		return;
 	}
@@ -754,5 +778,26 @@ void ABaseCharacter::Use()
 		// Open chest
 		TempChest->OpenChest();
 	}
+}
+#pragma endregion
+
+#pragma region Potions
+void ABaseCharacter::UsePotionAtIndex(int Index)
+{
+	if(!Potions.IsValidIndex(Index))
+	{
+		return;
+	}
+
+	// Spawn potion
+	FActorSpawnParameters SpawnParams;
+	SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+	ABasePotion* PotionToUse = GetWorld()->SpawnActor<ABasePotion>(Potions[Index], FTransform(), SpawnParams);
+
+	// Use the potion
+	PotionToUse->UsePotion();
+
+	// Destroy spawned potion actor
+	PotionToUse->Destroy();
 }
 #pragma endregion
