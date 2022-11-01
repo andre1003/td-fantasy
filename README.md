@@ -8,16 +8,16 @@ This is an indie RPG game developed in Unreal Engine 5. Currently, the game is o
 ## 💻 Prerequisites
 
 Before trying compile the game, check if all the following requirements have been met:
-* Unreal Engine: `Unreal Engine 5`. Unreal Engine 4 not tested!;
+* Unreal Engine: `Unreal Engine 5.0.3`. Unreal Engine 4 not tested!;
 * Hardware and Software: Same as Unreal Engine specifications - https://docs.unrealengine.com/5.0/en-US/hardware-and-software-specifications-for-unreal-engine/.
 
 ## 🚀 Installing TD Fantasy
 
-To install Army of Death, just open the dowloaded project with Unreal Engine 5.
+To install Army of Death, just open the dowloaded project with Unreal Engine 5 or download the demo [here](https://github.com/andre1003/td-fantasy/releases/tag/Demo).
 
 ## ☕ Building and Using TD Fantasy
 
-Currently no build have been made, so it is at you own risk. Nonetheless, no errors are expected when building the code. To build the game, follow the instructions bellow:
+You can download the latest demo of TD Fantasy [here](https://github.com/andre1003/td-fantasy/releases/tag/Demo). No errors are expected when building the code. To build the game, follow the instructions bellow:
 
 1. Open the game with Unreal Engine 5;
 2. Click on `Platforms`;
