@@ -88,7 +88,9 @@ void ABasePlayerController::OnSetDestinationReleased()
 
 		// We move there and spawn some particles
 		UAIBlueprintHelperLibrary::SimpleMoveToLocation(this, HitLocation);
-		UNiagaraFunctionLibrary::SpawnSystemAtLocation(this, FXCursor, HitLocation, FRotator::ZeroRotator, FVector(1.f, 1.f, 1.f), true, true, ENCPoolMethod::None, true);
+		UNiagaraFunctionLibrary::SpawnSystemAtLocation(this, FXCursor, 
+			HitLocation, FRotator::ZeroRotator, FVector(1.f, 1.f, 1.f), 
+			true, true, ENCPoolMethod::None, true);
 	}
 }
 #pragma endregion

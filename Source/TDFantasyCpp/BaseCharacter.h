@@ -70,6 +70,16 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "BasicHit")
 		TSubclassOf<class ABaseBasicHit> BasicHitReference;
 	#pragma endregion
+
+	#pragma region Level
+	// Level system class reference
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Level")
+		TSubclassOf<class ALevelSystem> LevelClass;
+
+	// Level system
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Level")
+		class ALevelSystem* Level;
+	#pragma endregion
 	#pragma endregion
 
 	#pragma region Protected Attributes
@@ -113,8 +123,8 @@ protected:
 		bool bIsUsingShotSkill;
 
 	// Skill cooldowns vector
-	UPROPERTY()
-		float SkillCooldowns[4];
+	UPROPERTY(BlueprintReadOnly, Category = "Skills")
+		TArray<float> SkillCooldowns;
 
 	// Skills array
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Skills")
@@ -135,6 +145,12 @@ protected:
 		class ABaseEnemy* FocusEnemy;
 	#pragma endregion
 
+	#pragma region Damage
+	// Game over UI widget reference
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Damage")
+		TSubclassOf<class UUserWidget> GameOverUIClass;
+	#pragma endregion
+
 	#pragma region Inventory
 	// Inventory base class reference
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Inventory")
@@ -143,16 +159,6 @@ protected:
 	// Player inventory
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Inventory")
 		class ABaseInventory* Inventory;
-	#pragma endregion
-
-	#pragma region Level
-	// Level system class reference
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Level")
-		TSubclassOf<class ALevelSystem> LevelClass;
-
-	// Level system
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Level")
-		class ALevelSystem* Level;
 	#pragma endregion
 
 	#pragma region Wallet
@@ -167,6 +173,11 @@ protected:
 	// Maximum money
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Wallet")
 		int MaxMoney = 1000000;
+
+
+	// Wallet UI widget class reference
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Wallet")
+		TSubclassOf<class UUserWidget> WalletUIClass;
 	#pragma endregion
 
 	#pragma region Temporary
@@ -352,14 +363,6 @@ public:
 	#pragma endregion
 
 	#pragma region Wallet
-	UFUNCTION(BlueprintCallable, BlueprintImplementableEvent)
-		/// <summary>
-		/// Add wallet UI widget to viewport. Blueprint implementable only!
-		/// </summary>
-		/// <param name="AddedCoins">- Added coins.</param>
-		/// <param name="AddedGems">- Added gems.</param>
-		void SetWalletUI(int AddedCoins, int AddedGems);
-
 	UFUNCTION(BlueprintCallable)
 		/// <summary>
 		/// Add coins and gems to player's wallet.
@@ -514,6 +517,22 @@ private:
 	/// </summary>
 	/// <param name="Index">Potion to use.</param>
 	void UsePotionAtIndex(int Index);
+	#pragma endregion
+
+	#pragma region Wallet
+	/// <summary>
+	/// Add wallet UI widget to viewport. Blueprint implementable only!
+	/// </summary>
+	/// <param name="AddedCoins">- Added coins.</param>
+	/// <param name="AddedGems">- Added gems.</param>
+	void SetWalletUI(int AddedCoins, int AddedGems);
+	#pragma endregion
+
+	#pragma region Inventory
+	/// <summary>
+	/// Open or close inventory UI.
+	/// </summary>
+	void OpenCloseInventoryUI();
 	#pragma endregion
 	#pragma endregion
 #pragma endregion

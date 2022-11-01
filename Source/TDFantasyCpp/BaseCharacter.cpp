@@ -9,24 +9,26 @@
 #include "BaseEnemy.h"
 #include "BaseInventory.h"
 #include "BaseItem.h"
+#include "BasePlayerController.h"
 #include "BasePotion.h"
 #include "BaseSkill.h"
-#include "UObject/ConstructorHelpers.h"
+#include "Blueprint/UserWidget.h"
 #include "Camera/CameraComponent.h"
-#include "Components/DecalComponent.h"
 #include "Components/CapsuleComponent.h"
+#include "Components/DecalComponent.h"
 #include "Data.h"
+#include "Engine/World.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/PlayerController.h"
 #include "GameFramework/SpringArmComponent.h"
+#include "Kismet/GameplayStatics.h"
 #include "Kismet/KismetMathLibrary.h"
 #include "Kismet/KismetStringLibrary.h"
-#include "Kismet/GameplayStatics.h"
 #include "LevelSystem.h"
 #include "Materials/Material.h"
-#include "Engine/World.h"
-#include "BasePlayerController.h"
+#include "Misc/OutputDeviceNull.h"
 #include "TDFantasyCppGameMode.h"
+#include "UObject/ConstructorHelpers.h"
 #pragma endregion
 
 
@@ -73,10 +75,10 @@ void ABaseCharacter::BeginPlay()
 	Super::BeginPlay();
 
 	// Set skill cooldowns
-	SkillCooldowns[0] = 0.f;
-	SkillCooldowns[1] = 0.f;
-	SkillCooldowns[2] = 0.f;
-	SkillCooldowns[3] = 0.f;
+	SkillCooldowns.Add(0.f);	// Skill 1
+	SkillCooldowns.Add(0.f);	// Skill 2
+	SkillCooldowns.Add(0.f);	// Skill 3
+	SkillCooldowns.Add(0.f);	// Ultimate skill
 
 	// Reset stats when begin play
 	ResetStats();
@@ -132,15 +134,18 @@ void ABaseCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompo
 	PlayerInputComponent->BindAction<FUseDelegate>("Skill3", EInputEvent::IE_Pressed, this, &ABaseCharacter::UseSkill, 2);
 	PlayerInputComponent->BindAction<FUseDelegate>("UltimateSkill", EInputEvent::IE_Pressed, this, &ABaseCharacter::UseSkill, 3);
 
+	// Use potion action bind
+	PlayerInputComponent->BindAction<FUseDelegate>("Potion1", EInputEvent::IE_Pressed, this, &ABaseCharacter::UsePotionAtIndex, 0);
+	PlayerInputComponent->BindAction<FUseDelegate>("Potion2", EInputEvent::IE_Pressed, this, &ABaseCharacter::UsePotionAtIndex, 1);
+
 	// Reset camera action bind
 	PlayerInputComponent->BindAction("ResetCamera", EInputEvent::IE_Pressed, this, &ABaseCharacter::ResetCamera);
 
 	// Use action bind
 	PlayerInputComponent->BindAction("Use", EInputEvent::IE_Pressed, this, &ABaseCharacter::Use);
 
-	// Use potion action bind
-	PlayerInputComponent->BindAction<FUseDelegate>("Potion1", EInputEvent::IE_Pressed, this, &ABaseCharacter::UsePotionAtIndex, 0);
-	PlayerInputComponent->BindAction<FUseDelegate>("Potion2", EInputEvent::IE_Pressed, this, &ABaseCharacter::UsePotionAtIndex, 1);
+	// Open and close inventory UI action bind
+	PlayerInputComponent->BindAction("Inventory", EInputEvent::IE_Pressed, this, &ABaseCharacter::OpenCloseInventoryUI);
 	#pragma endregion
 }
 #pragma endregion
@@ -208,6 +213,24 @@ void ABaseCharacter::PassiveUpgrade(int HealtUpgrade, int ManaUpgrade, int ADUpg
 }
 #pragma endregion
 
+#pragma region Animations
+void ABaseCharacter::PlayAttackAnimation()
+{
+	if(AttackAnimation)
+	{
+		PlayAnimMontage(AttackAnimation, AttackSpeed);
+	}
+}
+#pragma endregion
+
+#pragma region Enemy
+ABaseEnemy* ABaseCharacter::GetFocusEnemy()
+{
+	return FocusEnemy;
+}
+#pragma endregion
+
+#pragma region Combat
 #pragma region Damage
 void ABaseCharacter::BuffDamage(int AttackDamageBuff, int AbilityPowerBuff, int TrueDamageBuff)
 {
@@ -249,7 +272,8 @@ void ABaseCharacter::Die()
 	GetCharacterMovement()->StopMovementImmediately();
 
 	// Disable input
-	DisableInput(UGameplayStatics::GetPlayerController(GetWorld(), 0));
+	ABasePlayerController* PlayerController = Cast<ABasePlayerController>(UGameplayStatics::GetPlayerController(GetWorld(), 0));
+	PlayerController->DisableInput(PlayerController);
 
 	// Reset variables
 	FocusEnemy = nullptr;
@@ -260,29 +284,13 @@ void ABaseCharacter::Die()
 	// Set bIsDead to true
 	bIsDead = true;
 
-	// Add game over UI
-	//
+	// Create game over UI and display it
+	UUserWidget* GameOverUI = CreateWidget<UUserWidget>(GetWorld(), GameOverUIClass);
+	GameOverUI->AddToViewport();
 }
 #pragma endregion
 
-#pragma region Animations
-void ABaseCharacter::PlayAttackAnimation()
-{
-	if(AttackAnimation)
-	{
-		PlayAnimMontage(AttackAnimation, AttackSpeed);
-	}
-}
-#pragma endregion
-
-#pragma region Enemy
-ABaseEnemy* ABaseCharacter::GetFocusEnemy()
-{
-	return FocusEnemy;
-}
-#pragma endregion
-
-#pragma region Combat
+#pragma region Attack
 bool ABaseCharacter::HasRange(float Range, ESkillType Type)
 {
 	ABasePlayerController* PlayerController = Cast<ABasePlayerController>(UGameplayStatics::GetPlayerController(GetWorld(), 0));
@@ -360,30 +368,30 @@ void ABaseCharacter::UseSkill(int Index)
 
 	// Set attack type to skill
 	AttackType = EAttackType::EAT_Skill;
-
-	// Get deafult skill attributes
-	ABaseSkill* DefaultSkill = Cast<ABaseSkill>(Skills[Index]->StaticClass()->GetDefaultObject(true));
-	float SkillRange = DefaultSkill->Range;
-	ESkillType SkillType = DefaultSkill->SkillType;
-	ESkillSpawnOption SkillSpawnOption = DefaultSkill->SpawnOption;
-
-	// If there is no range, or spawn option is not OnEnemy nor OnUser, exit
-	if(!HasRange(SkillRange, SkillType) || (SkillSpawnOption != ESkillSpawnOption::ESSO_OnEnemy && 
-		SkillSpawnOption != ESkillSpawnOption::ESSO_OnUser))
-	{
-		return;
-	}
 	#pragma endregion
 
 	#pragma region Spawn Skill
 	// Spawn actor
 	FActorSpawnParameters SpawnParams;
 	SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
-	CurrentSkill = GetWorld()->SpawnActor<ABaseSkill>(Skills[Index], GetSkillSpawnTransform(SkillSpawnOption), SpawnParams);
+	CurrentSkill = GetWorld()->SpawnActor<ABaseSkill>(Skills[Index], FTransform(), SpawnParams);
 	
+	// If there is no range, and spawn option is not OnEnemy nor OnUser, exit
+	if(!HasRange(CurrentSkill->Range, CurrentSkill->SkillType) &&
+		CurrentSkill->SpawnOption != ESkillSpawnOption::ESSO_OnEnemy &&
+		CurrentSkill->SpawnOption != ESkillSpawnOption::ESSO_OnUser)
+	{
+		CurrentSkill->Destroy();
+		CurrentSkill = nullptr;
+		return;
+	}
+
+	// Setup skill transform
+	CurrentSkill->SetActorTransform(GetSkillSpawnTransform(CurrentSkill->SpawnOption));
+
 	// Skill actor setup
-	CurrentSkill->DisableCollision();
-	AttachSkill(SkillSpawnOption);
+	CurrentSkill->DisableSkillCollision();
+	AttachSkill(CurrentSkill->SpawnOption);
 
 	// Get skill cost and cooldown
 	int HealthCost = CurrentSkill->HealthCost;
@@ -393,7 +401,7 @@ void ABaseCharacter::UseSkill(int Index)
 
 	#pragma region Shot Skill
 	// If skill type is shot
-	if(SkillType == ESkillType::EST_Shot)
+	if(CurrentSkill->SkillType == ESkillType::EST_Shot)
 	{
 		// Indicate that is not using shot skill
 		bIsUsingShotSkill = true;
@@ -450,12 +458,13 @@ void ABaseCharacter::UseSkill(int Index)
 	#pragma endregion
 }
 #pragma endregion
+#pragma endregion
 
 #pragma region Spawn
 FTransform ABaseCharacter::GetSkillSpawnTransform(ESkillSpawnOption SpawnOption)
 {
 	// Spawn transform variables
-	FVector SpawnLocation;
+	FVector SpawnLocation = FVector::ZeroVector;
 	FRotator SpawnRotation = FRotator::ZeroRotator;
 	FVector SpawnScale = FVector::One();
 
@@ -534,8 +543,11 @@ void ABaseCharacter::AttachSkill(ESkillSpawnOption SpawnOption)
 		CurrentSkill->AttachToComponent(GetRootComponent(), AttachmentRules);
 	}
 
-	// Reset relative position
-	CurrentSkill->SetActorRelativeLocation(FVector::Zero());
+	if(SpawnOption != ESkillSpawnOption::ESSO_OnPointer)
+	{
+		// Reset relative position
+		CurrentSkill->SetActorRelativeLocation(FVector::Zero());
+	}
 }
 
 void ABaseCharacter::SpawnHit()
@@ -555,7 +567,7 @@ void ABaseCharacter::SpawnHit()
 		CurrentSkill->StartMovement();
 
 		// Enable skill collision
-		CurrentSkill->EnableCollision();
+		CurrentSkill->EnableSkillCollision();
 
 		// Set bIsUsingShotSkill to false
 		bIsUsingShotSkill = false;
@@ -584,6 +596,20 @@ void ABaseCharacter::AddMoney(int CoinsToAdd, int GemsToAdd)
 	{
 		Gems = MaxMoney;
 	}
+}
+
+void ABaseCharacter::SetWalletUI(int AddedCoins, int AddedGems)
+{
+	// Create wallet UI
+	UUserWidget* WalletUI = CreateWidget<UUserWidget>(GetWorld(), WalletUIClass);
+
+	// Set money text
+	FOutputDeviceNull OutputDeviceNull;
+	const FString Command = FString::Printf(TEXT("SetMoney \"%d\" \"%d\""), AddedCoins, AddedGems);
+	WalletUI->CallFunctionByNameWithArguments(*Command, OutputDeviceNull, nullptr, true);
+
+	// Add the widget to viewport
+	WalletUI->AddToViewport();
 }
 #pragma endregion
 
@@ -799,5 +825,16 @@ void ABaseCharacter::UsePotionAtIndex(int Index)
 
 	// Destroy spawned potion actor
 	PotionToUse->Destroy();
+}
+#pragma endregion
+
+#pragma region Inventory
+void ABaseCharacter::OpenCloseInventoryUI()
+{
+	// If there is an inventory reference, call the OpenInventoryUI method
+	if(Inventory)
+	{
+		Inventory->OpenInventoryUI();
+	}
 }
 #pragma endregion
