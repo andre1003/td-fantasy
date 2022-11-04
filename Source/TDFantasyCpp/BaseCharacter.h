@@ -214,6 +214,10 @@ protected:
 	// Potions slots (this will only have max 4 slots, but is better use TArray)
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Potions")
 		TArray<TSubclassOf<class ABasePotion>> Potions;
+
+	// Potions objects
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Potions")
+		TArray<class ABasePotion*> UsablePotions;
 	#pragma endregion
 	#pragma endregion
 

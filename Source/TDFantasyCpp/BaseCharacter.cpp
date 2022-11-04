@@ -86,7 +86,18 @@ void ABaseCharacter::BeginPlay()
 	// Setup attachment rules
 	FAttachmentTransformRules AttachmentRules = FAttachmentTransformRules::FAttachmentTransformRules
 	(EAttachmentRule::KeepRelative, EAttachmentRule::KeepRelative, EAttachmentRule::KeepRelative, false);
-	
+
+	// Spawn potions and add to UsablePotions array
+	for (int i = 0; i < Potions.Num(); i++)
+	{
+		FActorSpawnParameters SpawnParams;
+		SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+		ABasePotion* NewPotion = GetWorld()->SpawnActor<ABasePotion>(Potions[i], FTransform(), SpawnParams);
+		NewPotion->AttachToActor(this, AttachmentRules);
+		NewPotion->SetActorRelativeLocation(FVector::ZeroVector);
+		UsablePotions.Add(NewPotion);
+	}
+
 	// Get inventory and attach it to player
 	Inventory = Cast<ABaseInventory>(UGameplayStatics::GetActorOfClass(GetWorld(), InventoryClass));
 	Inventory->AttachToActor(this, AttachmentRules);
@@ -810,21 +821,14 @@ void ABaseCharacter::Use()
 #pragma region Potions
 void ABaseCharacter::UsePotionAtIndex(int Index)
 {
-	if(!Potions.IsValidIndex(Index))
+	// If index is invalid, exit
+	if(!UsablePotions.IsValidIndex(Index))
 	{
 		return;
 	}
 
-	// Spawn potion
-	FActorSpawnParameters SpawnParams;
-	SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
-	ABasePotion* PotionToUse = GetWorld()->SpawnActor<ABasePotion>(Potions[Index], FTransform(), SpawnParams);
-
 	// Use the potion
-	PotionToUse->UsePotion();
-
-	// Destroy spawned potion actor
-	PotionToUse->Destroy();
+	UsablePotions[Index]->UsePotion();
 }
 #pragma endregion
 
