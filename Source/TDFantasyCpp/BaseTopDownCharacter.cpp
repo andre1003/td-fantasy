@@ -3,7 +3,7 @@
 
 
 #pragma region Includes
-#include "BaseCharacter.h"
+#include "BaseTopDownCharacter.h"
 #include "BaseBasicHit.h"
 #include "BaseChest.h"
 #include "BaseEnemy.h"
@@ -16,6 +16,7 @@
 #include "Camera/CameraComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/DecalComponent.h"
+#include "DamageSystem.h"
 #include "Data.h"
 #include "Engine/World.h"
 #include "GameFramework/CharacterMovementComponent.h"
@@ -33,7 +34,7 @@
 
 
 #pragma region Constructor
-ABaseCharacter::ABaseCharacter()
+ABaseTopDownCharacter::ABaseTopDownCharacter()
 {
 	// Set size for player capsule
 	GetCapsuleComponent()->InitCapsuleSize(42.f, 96.0f);
@@ -70,7 +71,7 @@ ABaseCharacter::ABaseCharacter()
 
 #pragma region Events
 #pragma region Begin Play
-void ABaseCharacter::BeginPlay()
+void ABaseTopDownCharacter::BeginPlay()
 {
 	Super::BeginPlay();
 
@@ -107,11 +108,16 @@ void ABaseCharacter::BeginPlay()
 	Level = Cast<ALevelSystem>(UGameplayStatics::GetActorOfClass(GetWorld(), LevelClass));
 	Level->AttachToActor(this, AttachmentRules);
 	Level->SetActorRelativeLocation(FVector::ZeroVector);
+
+	// Get damage system and attach it to player
+	DamageSystem = Cast<ADamageSystem>(UGameplayStatics::GetActorOfClass(GetWorld(), DamageSystemClass));
+	DamageSystem->AttachToActor(this, AttachmentRules);
+	DamageSystem->SetActorRelativeLocation(FVector::ZeroVector);
 }
 #pragma endregion
 
 #pragma region Tick
-void ABaseCharacter::Tick(float DeltaSeconds)
+void ABaseTopDownCharacter::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
 
@@ -121,65 +127,60 @@ void ABaseCharacter::Tick(float DeltaSeconds)
 #pragma endregion
 
 #pragma region Player Input
-void ABaseCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
+void ABaseTopDownCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 {
 	Super::SetupPlayerInputComponent(PlayerInputComponent);
 
 	#pragma region Axis
 	// Gamepad movement axis bind
-	PlayerInputComponent->BindAxis("MoveForward", this, &ABaseCharacter::ForwardMovement);
-	PlayerInputComponent->BindAxis("MoveRight", this, &ABaseCharacter::RightMovement);
+	PlayerInputComponent->BindAxis("MoveForward", this, &ABaseTopDownCharacter::ForwardMovement);
+	PlayerInputComponent->BindAxis("MoveRight", this, &ABaseTopDownCharacter::RightMovement);
 
 	// Zoom axis bind
-	PlayerInputComponent->BindAxis("Zoom", this, &ABaseCharacter::CameraZoom);
+	PlayerInputComponent->BindAxis("Zoom", this, &ABaseTopDownCharacter::CameraZoom);
 	#pragma endregion
 
 	#pragma region Actions
 	// Gamepad basic hit action bind
-	PlayerInputComponent->BindAction("BasicHit", EInputEvent::IE_Pressed, this, &ABaseCharacter::GamepadBasicHit);
+	PlayerInputComponent->BindAction("BasicHit", EInputEvent::IE_Pressed, this, &ABaseTopDownCharacter::GamepadBasicHit);
 
 	// Skills action bind
 	DECLARE_DELEGATE_OneParam(FUseDelegate, const int);
-	PlayerInputComponent->BindAction<FUseDelegate>("Skill1", EInputEvent::IE_Pressed, this, &ABaseCharacter::UseSkill, 0);
-	PlayerInputComponent->BindAction<FUseDelegate>("Skill2", EInputEvent::IE_Pressed, this, &ABaseCharacter::UseSkill, 1);
-	PlayerInputComponent->BindAction<FUseDelegate>("Skill3", EInputEvent::IE_Pressed, this, &ABaseCharacter::UseSkill, 2);
-	PlayerInputComponent->BindAction<FUseDelegate>("UltimateSkill", EInputEvent::IE_Pressed, this, &ABaseCharacter::UseSkill, 3);
+	PlayerInputComponent->BindAction<FUseDelegate>("Skill1", EInputEvent::IE_Pressed, this, &ABaseTopDownCharacter::UseSkill, 0);
+	PlayerInputComponent->BindAction<FUseDelegate>("Skill2", EInputEvent::IE_Pressed, this, &ABaseTopDownCharacter::UseSkill, 1);
+	PlayerInputComponent->BindAction<FUseDelegate>("Skill3", EInputEvent::IE_Pressed, this, &ABaseTopDownCharacter::UseSkill, 2);
+	PlayerInputComponent->BindAction<FUseDelegate>("UltimateSkill", EInputEvent::IE_Pressed, this, &ABaseTopDownCharacter::UseSkill, 3);
 
 	// Use potion action bind
-	PlayerInputComponent->BindAction<FUseDelegate>("Potion1", EInputEvent::IE_Pressed, this, &ABaseCharacter::UsePotionAtIndex, 0);
-	PlayerInputComponent->BindAction<FUseDelegate>("Potion2", EInputEvent::IE_Pressed, this, &ABaseCharacter::UsePotionAtIndex, 1);
+	PlayerInputComponent->BindAction<FUseDelegate>("Potion1", EInputEvent::IE_Pressed, this, &ABaseTopDownCharacter::UsePotionAtIndex, 0);
+	PlayerInputComponent->BindAction<FUseDelegate>("Potion2", EInputEvent::IE_Pressed, this, &ABaseTopDownCharacter::UsePotionAtIndex, 1);
 
 	// Reset camera action bind
-	PlayerInputComponent->BindAction("ResetCamera", EInputEvent::IE_Pressed, this, &ABaseCharacter::ResetCamera);
+	PlayerInputComponent->BindAction("ResetCamera", EInputEvent::IE_Pressed, this, &ABaseTopDownCharacter::ResetCamera);
 
 	// Use action bind
-	PlayerInputComponent->BindAction("Use", EInputEvent::IE_Pressed, this, &ABaseCharacter::Use);
+	PlayerInputComponent->BindAction("Use", EInputEvent::IE_Pressed, this, &ABaseTopDownCharacter::Use);
 
 	// Open and close inventory UI action bind
-	PlayerInputComponent->BindAction("Inventory", EInputEvent::IE_Pressed, this, &ABaseCharacter::OpenCloseInventoryUI);
+	PlayerInputComponent->BindAction("Inventory", EInputEvent::IE_Pressed, this, &ABaseTopDownCharacter::OpenCloseInventoryUI);
 	#pragma endregion
 }
 #pragma endregion
 #pragma endregion
 
 #pragma region Stats
-void ABaseCharacter::ResetStats()
+void ABaseTopDownCharacter::ResetStats()
 {
 	// Health and mana
 	Health = BaseHealth;
 	Mana = BaseMana;
-
-	// Damage
-	AttackDamage = BaseAttackDamage;
-	AbilityPower = BaseAbilityPower;
-	TrueDamage = BaseTrueDamage;
 
 	// Basic attack
 	AttackSpeed = BaseAttackSpeed;
 	BasicAttackCooldown = BaseBasicAttackCooldown;
 }
 
-void ABaseCharacter::IncreaseHealth(int HealthToAdd)
+void ABaseTopDownCharacter::IncreaseHealth(int HealthToAdd)
 {
 	// Add health points
 	Health += HealthToAdd;
@@ -189,7 +190,7 @@ void ABaseCharacter::IncreaseHealth(int HealthToAdd)
 		Health = BaseHealth;
 }
 
-void ABaseCharacter::RestoreHealthAndMana(int HealthRestore, int ManaRestore)
+void ABaseTopDownCharacter::RestoreHealthAndMana(int HealthRestore, int ManaRestore)
 {
 	// Add health and mana points
 	Health += HealthRestore;
@@ -204,16 +205,16 @@ void ABaseCharacter::RestoreHealthAndMana(int HealthRestore, int ManaRestore)
 		Mana = BaseMana;
 }
 
-void ABaseCharacter::PassiveUpgrade(int HealtUpgrade, int ManaUpgrade, int ADUpgrade, int APUpgrade, int TDUpgrade, float BasicAttackCDUpgrade, float AttackSpeedUpgrade)
+void ABaseTopDownCharacter::PassiveUpgrade(int HealtUpgrade, int ManaUpgrade, int ADUpgrade, int APUpgrade, int TDUpgrade, float BasicAttackCDUpgrade, float AttackSpeedUpgrade)
 {
 	// Stats upgrade
 	BaseHealth = HealtUpgrade;
 	BaseMana = ManaUpgrade;
 
 	// Damage upgrade
-	BaseAttackDamage = ADUpgrade;
-	BaseAbilityPower = APUpgrade;
-	BaseTrueDamage = TDUpgrade;
+	DamageSystem->AttackDamage = ADUpgrade;
+	DamageSystem->AbilityPower = APUpgrade;
+	DamageSystem->TrueDamage = TDUpgrade;
 
 	// Basic attack upgrade
 	BaseBasicAttackCooldown = BasicAttackCDUpgrade;
@@ -225,7 +226,7 @@ void ABaseCharacter::PassiveUpgrade(int HealtUpgrade, int ManaUpgrade, int ADUpg
 #pragma endregion
 
 #pragma region Animations
-void ABaseCharacter::PlayAttackAnimation()
+void ABaseTopDownCharacter::PlayAttackAnimation()
 {
 	if(AttackAnimation)
 	{
@@ -235,7 +236,7 @@ void ABaseCharacter::PlayAttackAnimation()
 #pragma endregion
 
 #pragma region Enemy
-ABaseEnemy* ABaseCharacter::GetFocusEnemy()
+ABaseEnemy* ABaseTopDownCharacter::GetFocusEnemy()
 {
 	return FocusEnemy;
 }
@@ -243,41 +244,44 @@ ABaseEnemy* ABaseCharacter::GetFocusEnemy()
 
 #pragma region Combat
 #pragma region Damage
-void ABaseCharacter::BuffDamage(int AttackDamageBuff, int AbilityPowerBuff, int TrueDamageBuff)
+void ABaseTopDownCharacter::BuffDamage(int AttackDamageBuff, int AbilityPowerBuff, int TrueDamageBuff)
 {
 	// Attack damage buff
-	AttackDamage += AttackDamageBuff;
+	DamageSystem->AttackDamage += AttackDamageBuff;
 
 	// Ability power buff
-	AbilityPower += AbilityPowerBuff;
+	DamageSystem->AbilityPower += AbilityPowerBuff;
 
 	// True damage buff
-	TrueDamage += TrueDamageBuff;
+	DamageSystem->TrueDamage += TrueDamageBuff;
 }
 
-void ABaseCharacter::DebuffDamage(int AttackDamageDebuff, int AbilityPowerDebuff, int TrueDamageDebuff)
+void ABaseTopDownCharacter::DebuffDamage(int AttackDamageDebuff, int AbilityPowerDebuff, int TrueDamageDebuff)
 {
 	// Attack damage buff
-	AttackDamage -= AttackDamageDebuff;
+	DamageSystem->AttackDamage -= AttackDamageDebuff;
 
 	// Ability power buff
-	AbilityPower -= AbilityPowerDebuff;
+	DamageSystem->AbilityPower -= AbilityPowerDebuff;
 
 	// True damage buff
-	TrueDamage -= TrueDamageDebuff;
+	DamageSystem->TrueDamage -= TrueDamageDebuff;
 }
 
-void ABaseCharacter::TakeHit(int Damage)
+void ABaseTopDownCharacter::TakeHit(ADamageSystem* EnemyDamageSystem, int PoisonDamage, int FireDamage, int LightningDamage, int BleedingDamage)
 {
 	// Decrease health points
-	Health -= Damage;
+	Health -= DamageSystem->CalculateTakenDamage(EnemyDamageSystem);
+
+	// Add status
+	DamageSystem->AddStatus(PoisonDamage, FireDamage, LightningDamage, BleedingDamage);
 
 	// If health is less or equal to 0, call Die method
 	if(Health <= 0)
 		Die();
 }
 
-void ABaseCharacter::Die()
+void ABaseTopDownCharacter::Die()
 {
 	// Stop movement immeditely
 	GetCharacterMovement()->StopMovementImmediately();
@@ -302,7 +306,7 @@ void ABaseCharacter::Die()
 #pragma endregion
 
 #pragma region Attack
-bool ABaseCharacter::HasRange(float Range, ESkillType Type)
+bool ABaseTopDownCharacter::HasRange(float Range, ESkillType Type)
 {
 	ABasePlayerController* PlayerController = Cast<ABasePlayerController>(UGameplayStatics::GetPlayerController(GetWorld(), 0));
 	// Get using gamepad value
@@ -339,12 +343,12 @@ bool ABaseCharacter::HasRange(float Range, ESkillType Type)
 	}
 }
 
-void ABaseCharacter::ResetAutoAttack()
+void ABaseTopDownCharacter::ResetAutoAttack()
 {
 	BasicAttackCooldown = 0.f;
 }
 
-void ABaseCharacter::BasicAttack(ABaseEnemy* EnemyReference)
+void ABaseTopDownCharacter::BasicAttack(ABaseEnemy* EnemyReference)
 {
 	// If player is using a skill shot or basic attack is on cooldown, exit
 	if(bIsUsingShotSkill || BasicAttackCooldown > 0.f)
@@ -368,7 +372,7 @@ void ABaseCharacter::BasicAttack(ABaseEnemy* EnemyReference)
 	BasicAttackCooldown = BaseBasicAttackCooldown;
 }
 
-void ABaseCharacter::UseSkill(int Index)
+void ABaseTopDownCharacter::UseSkill(int Index)
 {
 	#pragma region Initial Setup
 	// If is a valid index, skill is on cooldown or there are any temporary variable set, exit method
@@ -472,7 +476,7 @@ void ABaseCharacter::UseSkill(int Index)
 #pragma endregion
 
 #pragma region Spawn
-FTransform ABaseCharacter::GetSkillSpawnTransform(ESkillSpawnOption SpawnOption)
+FTransform ABaseTopDownCharacter::GetSkillSpawnTransform(ESkillSpawnOption SpawnOption)
 {
 	// Spawn transform variables
 	FVector SpawnLocation = FVector::ZeroVector;
@@ -524,7 +528,7 @@ FTransform ABaseCharacter::GetSkillSpawnTransform(ESkillSpawnOption SpawnOption)
 	return SpawnTransform;
 }
 
-void ABaseCharacter::AttachSkill(ESkillSpawnOption SpawnOption)
+void ABaseTopDownCharacter::AttachSkill(ESkillSpawnOption SpawnOption)
 {
 	// Attachment rules setup
 	FAttachmentTransformRules AttachmentRules = FAttachmentTransformRules::FAttachmentTransformRules
@@ -561,7 +565,7 @@ void ABaseCharacter::AttachSkill(ESkillSpawnOption SpawnOption)
 	}
 }
 
-void ABaseCharacter::SpawnHit()
+void ABaseTopDownCharacter::SpawnHit()
 {
 	// If attack type is basic attack
 	if(AttackType == EAttackType::EAT_BasicAttack)
@@ -587,7 +591,7 @@ void ABaseCharacter::SpawnHit()
 #pragma endregion
 
 #pragma region Wallet
-void ABaseCharacter::AddMoney(int CoinsToAdd, int GemsToAdd)
+void ABaseTopDownCharacter::AddMoney(int CoinsToAdd, int GemsToAdd)
 {
 	// Add wallet UI
 	SetWalletUI(CoinsToAdd, GemsToAdd);
@@ -609,7 +613,7 @@ void ABaseCharacter::AddMoney(int CoinsToAdd, int GemsToAdd)
 	}
 }
 
-void ABaseCharacter::SetWalletUI(int AddedCoins, int AddedGems)
+void ABaseTopDownCharacter::SetWalletUI(int AddedCoins, int AddedGems)
 {
 	// Create wallet UI
 	UUserWidget* WalletUI = CreateWidget<UUserWidget>(GetWorld(), WalletUIClass);
@@ -625,14 +629,14 @@ void ABaseCharacter::SetWalletUI(int AddedCoins, int AddedGems)
 #pragma endregion
 
 #pragma region Temporary
-bool ABaseCharacter::HasTemporary()
+bool ABaseTopDownCharacter::HasTemporary()
 {
 	return (TempItem != nullptr || TempChest != nullptr);
 }
 #pragma endregion
 
 #pragma region Update
-void ABaseCharacter::UpdateCooldowns(float DeltaSeconds)
+void ABaseTopDownCharacter::UpdateCooldowns(float DeltaSeconds)
 {
 	// If there is a focus enemy
 	if(FocusEnemy != nullptr)
@@ -663,7 +667,7 @@ void ABaseCharacter::UpdateCooldowns(float DeltaSeconds)
 #pragma endregion
 
 #pragma region Gamepad
-void ABaseCharacter::ForwardMovement(float Value)
+void ABaseTopDownCharacter::ForwardMovement(float Value)
 {
 	// Set YIn variable
 	YIn = Value;
@@ -676,7 +680,7 @@ void ABaseCharacter::ForwardMovement(float Value)
 	MovementInput(true);
 }
 
-void ABaseCharacter::RightMovement(float Value)
+void ABaseTopDownCharacter::RightMovement(float Value)
 {
 	// Set XIn variable
 	XIn = Value;
@@ -689,7 +693,7 @@ void ABaseCharacter::RightMovement(float Value)
 	MovementInput(false);
 }
 
-void ABaseCharacter::MovementInput(bool bIsForwardMovement)
+void ABaseTopDownCharacter::MovementInput(bool bIsForwardMovement)
 {
 	// Forward movement
 	if(bIsForwardMovement)
@@ -713,7 +717,7 @@ void ABaseCharacter::MovementInput(bool bIsForwardMovement)
 	}
 }
 
-void ABaseCharacter::GamepadBasicHit()
+void ABaseTopDownCharacter::GamepadBasicHit()
 {
 	// Try to find closest enemy in a given range
 	GetClosestEnemy(2500.f);
@@ -727,7 +731,7 @@ void ABaseCharacter::GamepadBasicHit()
 #pragma endregion
 
 #pragma region Camera
-void ABaseCharacter::CameraZoom(float Value)
+void ABaseTopDownCharacter::CameraZoom(float Value)
 {
 	// If there is no input, exit
 	if(Value == 0.f)
@@ -768,31 +772,31 @@ void ABaseCharacter::CameraZoom(float Value)
 	CameraBoom->TargetArmLength = UKismetMathLibrary::FClamp(CameraBoom->TargetArmLength, 1000.f, 4000.f);
 }
 
-void ABaseCharacter::ResetCamera()
+void ABaseTopDownCharacter::ResetCamera()
 {
 	CameraBoom->TargetArmLength = 2200.f;
 }
 #pragma endregion
 
 #pragma region Setters
-void ABaseCharacter::SetFocusEnemy(class ABaseEnemy* NewFocusEnemy)
+void ABaseTopDownCharacter::SetFocusEnemy(class ABaseEnemy* NewFocusEnemy)
 {
 	FocusEnemy = NewFocusEnemy;
 }
 
-void ABaseCharacter::SetTempItem(ABaseItem* Value)
+void ABaseTopDownCharacter::SetTempItem(ABaseItem* Value)
 {
 	TempItem = Value;
 }
 
-void ABaseCharacter::SetTempChest(class ABaseChest* Value)
+void ABaseTopDownCharacter::SetTempChest(class ABaseChest* Value)
 {
 	TempChest = Value;
 }
 #pragma endregion
 
 #pragma region Use
-void ABaseCharacter::Use()
+void ABaseTopDownCharacter::Use()
 {
 	// If there is no temporary item and chest, exit
 	if(!HasTemporary())
@@ -819,7 +823,7 @@ void ABaseCharacter::Use()
 #pragma endregion
 
 #pragma region Potions
-void ABaseCharacter::UsePotionAtIndex(int Index)
+void ABaseTopDownCharacter::UsePotionAtIndex(int Index)
 {
 	// If index is invalid, exit
 	if(!UsablePotions.IsValidIndex(Index))
@@ -833,7 +837,7 @@ void ABaseCharacter::UsePotionAtIndex(int Index)
 #pragma endregion
 
 #pragma region Inventory
-void ABaseCharacter::OpenCloseInventoryUI()
+void ABaseTopDownCharacter::OpenCloseInventoryUI()
 {
 	// If there is an inventory reference, call the OpenInventoryUI method
 	if(Inventory)

@@ -2,7 +2,7 @@
 
 #include "TDFantasyCppGameMode.h"
 #include "BasePlayerController.h"
-#include "BaseCharacter.h"
+#include "BaseTopDownCharacter.h"
 #include "UObject/ConstructorHelpers.h"
 
 ATDFantasyCppGameMode::ATDFantasyCppGameMode()

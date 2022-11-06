@@ -8,7 +8,7 @@
 #include "Blueprint/AIBlueprintHelperLibrary.h"
 #include "NiagaraSystem.h"
 #include "NiagaraFunctionLibrary.h"
-#include "BaseCharacter.h"
+#include "BaseTopDownCharacter.h"
 #include "Engine/World.h"
 #include "BaseEnemy.h"
 #include "BaseChest.h"
@@ -35,7 +35,6 @@ void ABasePlayerController::PlayerTick(float DeltaTime)
 	UpdateMouseDisplay();
 	CheckMouseMovement();
 	CheckCursorChange();
-
 }
 #pragma endregion
 
@@ -45,8 +44,8 @@ void ABasePlayerController::SetupInputComponent()
 	// set up gameplay key bindings
 	Super::SetupInputComponent();
 
+	// On mouse click action bind
 	InputComponent->BindAction("SetDestination", IE_Pressed, this, &ABasePlayerController::OnSetDestinationPressed);
-	//InputComponent->BindAction("SetDestination", IE_Released, this, &ABasePlayerController::OnSetDestinationReleased);
 }
 #pragma endregion
 #pragma endregion
@@ -69,7 +68,6 @@ void ABasePlayerController::OnSetDestinationPressed()
 	{
 		CallBasicAttack(EnemyReference);
 	}
-
 }
 
 void ABasePlayerController::OnSetDestinationReleased()
@@ -147,7 +145,7 @@ void ABasePlayerController::MoveToHitLocation(FVector TargetLocation)
 	UNiagaraFunctionLibrary::SpawnSystemAtLocation(this, FXCursor, TargetLocation, FRotator::ZeroRotator, FVector(1.f, 1.f, 1.f), true, true, ENCPoolMethod::None, true);
 
 	// Get player
-	ABaseCharacter* BaseCharacter = Cast<ABaseCharacter>(UGameplayStatics::GetPlayerCharacter(GetWorld(), 0));
+	ABaseTopDownCharacter* BaseCharacter = Cast<ABaseTopDownCharacter>(UGameplayStatics::GetPlayerCharacter(GetWorld(), 0));
 	
 	// Reset focus enemy and auto attack
 	BaseCharacter->SetFocusEnemy(nullptr);
@@ -162,7 +160,7 @@ void ABasePlayerController::CallBasicAttack(ABaseEnemy* Enemy)
 	StopMovement();
 
 	// Get player
-	ABaseCharacter* BaseCharacter = Cast<ABaseCharacter>(UGameplayStatics::GetPlayerCharacter(GetWorld(), 0));
+	ABaseTopDownCharacter* BaseCharacter = Cast<ABaseTopDownCharacter>(UGameplayStatics::GetPlayerCharacter(GetWorld(), 0));
 
 	// Call player's basic attack method
 	BaseCharacter->BasicAttack(Enemy);

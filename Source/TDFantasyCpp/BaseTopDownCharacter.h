@@ -7,12 +7,12 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
 #include "Data.h"
-#include "BaseCharacter.generated.h"
+#include "BaseTopDownCharacter.generated.h"
 #pragma endregion
 
 
 UCLASS(Blueprintable)
-class ABaseCharacter : public ACharacter
+class ABaseTopDownCharacter : public ACharacter
 {
 	GENERATED_BODY()
 
@@ -21,17 +21,13 @@ class ABaseCharacter : public ACharacter
 	#pragma region Public Attributes
 public:
 	#pragma region Damage
-	// Attack damage (AD)
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Damage")
-		int AttackDamage;
+	// Damage system 
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Damage")
+		class ADamageSystem* DamageSystem;
 
-	// Ability power (AP)
+	// Damage system class reference
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Damage")
-		int AbilityPower;
-
-	// True damage (TD)
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Damage")
-		int TrueDamage;
+		TSubclassOf<class ADamageSystem> DamageSystemClass;
 	#pragma endregion
 
 	#pragma region Base Stats
@@ -42,18 +38,6 @@ public:
 	// Base mana points
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Base Stats")
 		int BaseMana;
-
-	// Base attack damage (AD)
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Base Stats")
-		int BaseAttackDamage;
-
-	// Base ability power (AP)
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Base Stats")
-		int BaseAbilityPower;
-
-	// Base true damage (TD)
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Base Stats")
-		int BaseTrueDamage;
 
 
 	// Base attack speed value
@@ -251,7 +235,7 @@ private:
 #pragma region Methods
 	#pragma region Public Methods
 public:
-	ABaseCharacter();
+	ABaseTopDownCharacter();
 
 	// Called every frame.
 	virtual void Tick(float DeltaSeconds) override;
@@ -334,8 +318,12 @@ public:
 		/// <summary>
 		/// Take a hit.
 		/// </summary>
-		/// <param name="Damage">Damage to take.</param>
-		void TakeHit(int Damage);
+		/// <param name="EnemyDamageSystem">- Enemy damage system reference.</param>
+		/// <param name="PoisonDamage">- Enemy poison damage.</param>
+		/// <param name="FireDamage">- Enemy fire damage.</param>
+		/// <param name="LightningDamage">- Enemy lightning damage.</param>
+		/// <param name="BleedingDamage">- Enemy bleeding damage.</param>
+		void TakeHit(class ADamageSystem* EnemyDamageSystem, int PoisonDamage = 0, int FireDamage = 0, int LightningDamage = 0, int BleedingDamage = 0);
 
 	UFUNCTION(BlueprintCallable, Category = "Damage")
 		/// <summary>
